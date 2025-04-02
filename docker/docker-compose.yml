@@ -1,0 +1,38 @@
+version: '3.7'
+
+networks:
+  logger:
+    name: logger
+    driver: bridge
+
+volumes:
+  postgres:
+
+services:
+  adminer-ui:
+    container_name: adminer-ui
+    build:
+      context: ./adminer
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      ADMINER_DESIGN: 'pappu687'
+      POSTGRES_HOST: postgres_host
+    networks:
+      - logger
+    ports:
+      - 80:8080
+  postgres:
+    container_name: postgres
+    image: postgres:latest
+    environment:
+      - LC_ALL=C.UTF-8
+      - POSTGRES_DB=time-logger
+      - POSTGRES_USER=root
+      - POSTGRES_PASSWORD=root
+    networks:
+      - logger
+    ports:
+      - 5432:5432
+    volumes:
+      - postgres:/var/lib/postgresql/data

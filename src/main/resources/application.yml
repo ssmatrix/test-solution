@@ -1,0 +1,21 @@
+server:
+  port: 9999
+
+query-time:
+  max-execution-time: 10 # maximum time for an unloaded database query in milliseconds
+
+spring:
+  datasource:
+    hikari:
+      connection-timeout: 1000
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5432/time-logger
+    username: root
+    password: root
+  jpa:
+    hibernate:
+      ddl-auto: create
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
