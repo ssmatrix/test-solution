@@ -1,9 +1,9 @@
 package com.example.time.logger.scheduler;
 
+import com.example.time.logger.buffer.Buffer;
 import com.example.time.logger.checker.ConnectionChecker;
 import com.example.time.logger.model.entity.TimeRecord;
 import com.example.time.logger.repository.TimeRecordRepository;
-import com.example.time.logger.util.Buffer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -19,13 +19,14 @@ public class ReconnectionScheduler {
 
     private final TimeRecordRepository timeRecordRepository;
     private final ConnectionChecker connectionChecker;
+    private final Buffer buffer;
 
     @Scheduled(fixedRate = 5000)
     public void reconnectAndSaveBufferedData() {
         try {
             if (connectionChecker.isConnection()) {
-                while (!Buffer.isEmpty()) {
-                    Optional<LocalDateTime> timestamp = Optional.ofNullable(Buffer.pollFromBuffer());
+                while (!buffer.isEmpty()) {
+                    Optional<LocalDateTime> timestamp = Optional.ofNullable(buffer.pollFromBuffer());
                     timestamp.ifPresent(dateTime -> {
                         log.info("Data from the buffer is added to the DB: " + dateTime);
                         timeRecordRepository.save(new TimeRecord(dateTime));

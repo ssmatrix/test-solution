@@ -1,9 +1,9 @@
 package com.example.time.logger.scheduler;
 
+import com.example.time.logger.buffer.Buffer;
 import com.example.time.logger.checker.ConnectionChecker;
 import com.example.time.logger.model.entity.TimeRecord;
 import com.example.time.logger.repository.TimeRecordRepository;
-import com.example.time.logger.util.Buffer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -30,6 +30,9 @@ class ReconnectionSchedulerTest {
     @Mock
     private ConnectionChecker connectionChecker;
 
+    @Mock
+    private Buffer buffer;
+
     @InjectMocks
     private ReconnectionScheduler reconnectionScheduler;
 
@@ -39,7 +42,7 @@ class ReconnectionSchedulerTest {
         when(connectionChecker.isConnection()).thenReturn(true);
 
         var expectedDateTime = LocalDateTime.now();
-        Buffer.addToBuffer(expectedDateTime);
+        buffer.addToBuffer(expectedDateTime);
 
         reconnectionScheduler.reconnectAndSaveBufferedData();
 

@@ -1,5 +1,6 @@
 package com.example.time.logger.scheduler;
 
+import com.example.time.logger.buffer.Buffer;
 import com.example.time.logger.checker.ConnectionChecker;
 import com.example.time.logger.model.entity.TimeRecord;
 import com.example.time.logger.repository.TimeRecordRepository;
@@ -29,30 +30,35 @@ class TimeSchedulerTest {
     @Mock
     private ConnectionChecker connectionChecker;
 
+    @Mock
+    private Buffer buffer;
+
     @InjectMocks
     private TimeScheduler timeScheduler;
 
     @Test
     @Description("Check that the current time is preserved when a connection is available.")
-    void saveCurrentTimeWhenConnectionIsAvailable() {
+    void generateCurrentTimeShouldSaveDataToDatabaseWhenConnectionIsAvailable() throws InterruptedException {
         when(connectionChecker.isConnection()).thenReturn(true);
 
-        timeScheduler.saveCurrentTime();
+        timeScheduler.generateCurrentTime();
 
-        var captor = ArgumentCaptor.forClass(TimeRecord.class);
-        verify(timeRecordRepository, times(1)).save(captor.capture());
+        Thread.sleep(100);
 
-        var nowTime = LocalDateTime.now();
-        assertEquals(nowTime.getMinute(), captor.getValue().getDateTime().getMinute());
+        verify(timeRecordRepository).save(any(TimeRecord.class));
+        verify(buffer, never()).addToBuffer(any(LocalDateTime.class));
     }
 
     @Test
     @Description("check that the current time is not saved when the connection is unavailable.")
-    void saveCurrentTimeWhenConnectionIsNotAvailable() {
+    void generateCurrentTimeAddToBufferWhenConnectionIsNotAvailable() throws InterruptedException {
         when(connectionChecker.isConnection()).thenReturn(false);
 
-        timeScheduler.saveCurrentTime();
+        timeScheduler.generateCurrentTime();
 
+        Thread.sleep(100);
+
+        verify(buffer).addToBuffer(any(LocalDateTime.class));
         verify(timeRecordRepository, never()).save(any(TimeRecord.class));
     }
 }
