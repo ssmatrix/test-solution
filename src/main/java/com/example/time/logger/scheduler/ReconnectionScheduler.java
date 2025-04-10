@@ -9,7 +9,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDateTime;
 import java.util.Optional;
 
 @Slf4j
@@ -23,18 +22,24 @@ public class ReconnectionScheduler {
 
     @Scheduled(fixedRate = 5000)
     public void reconnectAndSaveBufferedData() {
-        try {
-            if (connectionChecker.isConnection()) {
-                while (!buffer.isEmpty()) {
-                    Optional<LocalDateTime> timestamp = Optional.ofNullable(buffer.pollFromBuffer());
-                    timestamp.ifPresent(dateTime -> {
-                        log.info("Data from the buffer is added to the DB: " + dateTime);
-                        timeRecordRepository.save(new TimeRecord(dateTime));
-                    });
+        if (connectionChecker.isConnection()) {
+            buffer.setRecoveryInProgress(true);
+
+            buffer.executeInLock(() -> {
+                try {
+                    while (!buffer.isEmpty()) {
+                        Optional.ofNullable(buffer.pollFromBuffer())
+                                .ifPresent(dateTime -> {
+                                    log.info("Restoring from buffer to DB: " + dateTime);
+                                    timeRecordRepository.save(new TimeRecord(dateTime));
+                                });
+                    }
+                } catch (Exception e) {
+                    log.error("Error restoring buffer: " + e.getMessage(), e);
+                } finally {
+                    buffer.setRecoveryInProgress(false);
                 }
-            }
-        } catch (Exception e) {
-            log.error("Something happened to the buffer: " + e.getMessage());
+            });
         }
     }
 }

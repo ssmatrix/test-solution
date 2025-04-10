@@ -4,6 +4,7 @@ import com.example.time.logger.buffer.Buffer;
 import com.example.time.logger.checker.ConnectionChecker;
 import com.example.time.logger.model.entity.TimeRecord;
 import com.example.time.logger.repository.TimeRecordRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -14,9 +15,7 @@ import org.springframework.context.annotation.Description;
 import java.time.LocalDateTime;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class TimeSchedulerTest {
@@ -33,29 +32,45 @@ class TimeSchedulerTest {
     @InjectMocks
     private TimeScheduler timeScheduler;
 
+    @BeforeEach
+    void setUp() {
+    }
+
     @Test
-    @Description("Check that the current time is preserved when a connection is available.")
+    @Description("Should save data to DB when connection is available and recovery is not in progress.")
     void generateCurrentTimeShouldSaveDataToDatabaseWhenConnectionIsAvailable() throws InterruptedException {
+        when(buffer.isRecoveryInProgress()).thenReturn(false);
         when(connectionChecker.isConnection()).thenReturn(true);
 
         timeScheduler.generateCurrentTime();
+        Thread.sleep(200); // дать время executor'у
 
-        Thread.sleep(100);
-
-        verify(timeRecordRepository).save(any(TimeRecord.class));
+        verify(timeRecordRepository, timeout(500)).save(any(TimeRecord.class));
         verify(buffer, never()).addToBuffer(any(LocalDateTime.class));
     }
 
     @Test
-    @Description("check that the current time is not saved when the connection is unavailable.")
+    @Description("Should add data to buffer when connection is unavailable.")
     void generateCurrentTimeAddToBufferWhenConnectionIsNotAvailable() throws InterruptedException {
+        when(buffer.isRecoveryInProgress()).thenReturn(false);
         when(connectionChecker.isConnection()).thenReturn(false);
 
         timeScheduler.generateCurrentTime();
+        Thread.sleep(200);
 
-        Thread.sleep(100);
+        verify(buffer, timeout(500)).addToBuffer(any(LocalDateTime.class));
+        verify(timeRecordRepository, never()).save(any(TimeRecord.class));
+    }
 
-        verify(buffer).addToBuffer(any(LocalDateTime.class));
+    @Test
+    @Description("Should add to buffer if recovery is in progress regardless of connection.")
+    void generateCurrentTimeAddToBufferWhenRecoveryInProgress() throws InterruptedException {
+        when(buffer.isRecoveryInProgress()).thenReturn(true);
+
+        timeScheduler.generateCurrentTime();
+        Thread.sleep(200);
+
+        verify(buffer, timeout(500)).addToBuffer(any(LocalDateTime.class));
         verify(timeRecordRepository, never()).save(any(TimeRecord.class));
     }
 }

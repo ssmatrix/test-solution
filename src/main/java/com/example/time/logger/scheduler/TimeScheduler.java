@@ -31,10 +31,21 @@ public class TimeScheduler {
     }
 
     private void processCurrentTime(LocalDateTime currentTime) {
+        if (buffer.isRecoveryInProgress()) {
+            log.info("Recovery in progress. Adding to buffer instead of DB: " + currentTime);
+            buffer.addToBuffer(currentTime);
+            return;
+        }
+
         if (connectionChecker.isConnection()) {
-            log.info("The DB is working, data is added to the DB: " + timeRecordRepository.save(new TimeRecord(currentTime)));
+            try {
+                log.info("The DB is working, saving to DB: " + timeRecordRepository.save(new TimeRecord(currentTime)));
+            } catch (Exception e) {
+                log.warn("Failed to save to DB, adding to buffer: " + currentTime);
+                buffer.addToBuffer(currentTime);
+            }
         } else {
-            log.info("Data is added to the buffer: " + currentTime);
+            log.info("DB is down, adding to buffer: " + currentTime);
             buffer.addToBuffer(currentTime);
         }
     }

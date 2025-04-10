@@ -16,10 +16,7 @@ import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ReconnectionSchedulerTest {
@@ -37,28 +34,38 @@ class ReconnectionSchedulerTest {
     private ReconnectionScheduler reconnectionScheduler;
 
     @Test
-    @Description("check that the data from the buffer is saved when the connection is available.")
+    @Description("Check that data from buffer is saved when connection is available.")
     void reconnectAndSaveBufferedDataWhenConnectionIsAvailable() {
         when(connectionChecker.isConnection()).thenReturn(true);
 
-        var expectedDateTime = LocalDateTime.now();
-        buffer.addToBuffer(expectedDateTime);
+        LocalDateTime expectedDateTime = LocalDateTime.now();
+
+        doAnswer(invocation -> {
+            Runnable runnable = invocation.getArgument(0);
+            when(buffer.isEmpty()).thenReturn(false, true);
+            when(buffer.pollFromBuffer()).thenReturn(expectedDateTime);
+            runnable.run();
+            return null;
+        }).when(buffer).executeInLock(any(Runnable.class));
 
         reconnectionScheduler.reconnectAndSaveBufferedData();
 
-        var captor = ArgumentCaptor.forClass(TimeRecord.class);
+        ArgumentCaptor<TimeRecord> captor = ArgumentCaptor.forClass(TimeRecord.class);
         verify(timeRecordRepository, times(1)).save(captor.capture());
-
         assertEquals(expectedDateTime, captor.getValue().getDateTime());
+
+        verify(buffer).setRecoveryInProgress(true);
+        verify(buffer).setRecoveryInProgress(false);
     }
 
     @Test
-    @Description("check that data from the buffer is not saved when the connection is unavailable.")
+    @Description("Check that data from buffer is not saved when connection is unavailable.")
     void reconnectAndSaveBufferedDataWhenConnectionIsNotAvailable() {
         when(connectionChecker.isConnection()).thenReturn(false);
 
         reconnectionScheduler.reconnectAndSaveBufferedData();
 
-        verify(timeRecordRepository, never()).save(any(TimeRecord.class));
+        verify(buffer, never()).executeInLock(any());
+        verify(timeRecordRepository, never()).save(any());
     }
 }
